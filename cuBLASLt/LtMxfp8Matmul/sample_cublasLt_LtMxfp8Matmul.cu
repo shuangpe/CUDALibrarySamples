@@ -27,6 +27,8 @@
  */
 
 #include <cublasLt.h>
+#include <iostream>
+using namespace std;
 
 #include "helpers.h"
 #include "sample_cublasLt_LtMxfp8Matmul.h"
@@ -108,6 +110,10 @@ void LtMxfp8Matmul(cublasLtHandle_t ltHandle,
         checkCublasStatus(CUBLAS_STATUS_NOT_SUPPORTED);
     }
 
+int iters=2000;
+int warmup=500;
+int batchCount=1;
+for (int ii=0; ii < warmup; ++ii){
     checkCublasStatus(cublasLtMatmul(ltHandle,
                                      operationDesc,
                                      alpha,
@@ -124,6 +130,37 @@ void LtMxfp8Matmul(cublasLtHandle_t ltHandle,
                                      workspace,
                                      workspaceSize,
                                      0));
+}
+printf("%d iters warmup finished. \n", warmup);
+
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  cudaEventRecord(start, 0);
+  for (int ii=0; ii < iters; ++ii){
+    checkCublasStatus(cublasLtMatmul(ltHandle,
+                                     operationDesc,
+                                     alpha,
+                                     A,
+                                     Adesc,
+                                     B,
+                                     Bdesc,
+                                     &beta,
+                                     C,
+                                     Cdesc,
+                                     D,
+                                     Ddesc,
+                                     &heuristicResult.algo,
+                                     workspace,
+                                     workspaceSize,
+                                     0));
+}
+    cudaEventRecord(stop,0);
+    cudaEventSynchronize(stop);
+    float elapsed;
+    cudaEventElapsedTime(&elapsed, start, stop);
+    cout << "running gemm with repeats: " << iters << ", average time: " << elapsed/iters << " ms, bs=" << batchCount << ", m=" << m << ", n=" << n << ", k="<< k << ", tflops=" << 2*1e-9*m*n*k/(elapsed/iters) * batchCount << endl;   
+    
 
     // descriptors are no longer needed as all GPU work was already enqueued
     if (preference) checkCublasStatus(cublasLtMatmulPreferenceDestroy(preference));

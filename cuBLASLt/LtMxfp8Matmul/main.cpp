@@ -33,9 +33,13 @@
 #include "helpers.h"
 
 int main() {
+    unsigned short seed = 30;
+    seed48(&seed);
+    
+    int m=16384, n=16384, k=16384;
     TestBench<__nv_fp8_e4m3, __nv_fp8_e4m3, float, __nv_fp8_e8m0, __nv_fp8_e8m0, __nv_bfloat16> props(
         CUBLAS_OP_T, CUBLAS_OP_N,
-        64, 128, 256, 2.0f, 1.0f, 32ULL * 1024 * 1024, 1,
+        m, n, k, 2.0f, 1.0f, 32ULL * 1024 * 1024, 1,
         CUBLASLT_MATMUL_MATRIX_SCALE_VEC32_UE8M0, CUBLASLT_MATMUL_MATRIX_SCALE_VEC32_UE8M0, CUBLASLT_MATMUL_MATRIX_SCALE_SCALAR_32F, CUBLASLT_MATMUL_MATRIX_SCALE_SCALAR_32F, CUBLASLT_MATMUL_MATRIX_SCALE_VEC32_UE8M0);
 
     props.run([&props] {

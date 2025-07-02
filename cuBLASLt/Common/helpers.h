@@ -39,6 +39,13 @@
 #include <cuda_runtime_api.h>
 
 
+const float upper = SCOPE_MAX;
+const float lower = SCOPE_MIN;
+
+inline float random_float() {
+    return (float)rand() / RAND_MAX * (upper - lower) + lower;
+}
+
 static size_t roundoff(size_t  x, size_t granul) {
     return granul * ((x + (granul - 1)) / granul);
 }
@@ -262,10 +269,10 @@ struct TestBench {
     }
 
     void fillData() {
-        for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = InTypeAB(i);
-        for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = InTypeAB(i);
-        for (size_t i = 0; i < Chost.size(); i++) Chost[i] = InTypeC(i);
-        for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = OutType(i + 1);
+        for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = InTypeAB(random_float());
+        for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = InTypeAB(random_float());
+        for (size_t i = 0; i < Chost.size(); i++) Chost[i] = InTypeC(random_float());
+        for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = OutType(random_float());
     }
 
     void fillScales(ScaleType Ascale, ScaleType Bscale, ScaleType Cscale, DScaleType Dscale) {
@@ -373,10 +380,10 @@ struct TestBench {
 
 template <>
 inline void TestBench<__half, __half, float>::fillData() {
-    for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = __float2half_rn(float(i));
-    for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __float2half_rn(float(i));
-    for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __float2half_rn(float(i));
-    for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __float2half_rn(float(i + 1));
+    for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = __float2half_rn(random_float());
+    for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __float2half_rn(random_float());
+    for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __float2half_rn(random_float());
+    for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __float2half_rn(random_float());
 }
 
 template <>

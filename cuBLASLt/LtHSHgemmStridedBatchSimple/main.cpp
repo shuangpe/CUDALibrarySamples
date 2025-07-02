@@ -30,7 +30,11 @@
 #include "helpers.h"
 
 int main() {
-    TestBench<__half, __half, float> props(CUBLAS_OP_N, CUBLAS_OP_N, 4, 4, 4, 2.0f, 0.0f, 4 * 1024 * 1024 * 2, 2);
+    unsigned short seed = 30;
+    seed48(&seed);
+    
+    int m=16384, n=16384, k=16384;
+    TestBench<__half, __half, float> props(CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, 2.0f, 0.0f, 4 * 1024 * 1024 * 2, 1);
 
     props.run([&props] {
         LtHSHgemmStridedBatchSimple(props.ltHandle,

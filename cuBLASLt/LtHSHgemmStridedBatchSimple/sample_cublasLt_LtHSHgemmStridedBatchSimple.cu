@@ -27,6 +27,8 @@
  */
 
 #include <cublasLt.h>
+#include <iostream>
+using namespace std;
 
 #include "sample_cublasLt_LtHSHgemmStridedBatchSimple.h"
 #include "helpers.h"
@@ -83,6 +85,10 @@ void LtHSHgemmStridedBatchSimple(cublasLtHandle_t ltHandle,
     // matmul to get the basic heuristic result internally. Downsides of this approach are that there is no way to
     // configure search preferences (e.g. disallow tensor operations or some reduction schemes) and no way to store the
     // algo for later use
+
+// int iters=2000;
+// int warmup=500;
+// for (int ii=0; ii < warmup; ++ii){
     checkCublasStatus(cublasLtMatmul(ltHandle,
                                      operationDesc,
                                      alpha,
@@ -99,7 +105,37 @@ void LtHSHgemmStridedBatchSimple(cublasLtHandle_t ltHandle,
                                      workspace,
                                      workspaceSize,
                                      0));
+// }
+// printf("%d iters warmup finished. \n", warmup);
 
+//   cudaEvent_t start, stop;
+//   cudaEventCreate(&start);
+//   cudaEventCreate(&stop);
+//   cudaEventRecord(start, 0);
+//   for (int ii=0; ii < iters; ++ii){
+//     checkCublasStatus(cublasLtMatmul(ltHandle,
+//                                      operationDesc,
+//                                      alpha,
+//                                      A,
+//                                      Adesc,
+//                                      B,
+//                                      Bdesc,
+//                                      beta,
+//                                      C,
+//                                      Cdesc,
+//                                       C,
+//                                      Cdesc,
+//                                      NULL,
+//                                      workspace,
+//                                      workspaceSize,
+//                                      0));
+// }
+//     cudaEventRecord(stop,0);
+//     cudaEventSynchronize(stop);
+//     float elapsed;
+//     cudaEventElapsedTime(&elapsed, start, stop);
+//     cout << "running gemm with repeats: " << iters << ", average time: " << elapsed/iters << " ms, bs=" << batchCount << ", m=" << m << ", n=" << n << ", k="<< k << ", tflops=" << 2*1e-9*m*n*k/(elapsed/iters) * batchCount << endl;   
+    
     // descriptors are no longer needed as all GPU work was already enqueued
     if (Cdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Cdesc));
     if (Bdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Bdesc));

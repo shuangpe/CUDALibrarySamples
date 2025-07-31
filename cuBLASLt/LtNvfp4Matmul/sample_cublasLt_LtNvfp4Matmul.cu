@@ -27,6 +27,8 @@
  */
 
 #include <cublasLt.h>
+#include <iostream>
+using namespace std;
 
 #include "helpers.h"
 #include "sample_cublasLt_LtNvfp4Matmul.h"
@@ -112,22 +114,80 @@ void LtNvfp4Matmul(cublasLtHandle_t ltHandle,
         checkCublasStatus(CUBLAS_STATUS_NOT_SUPPORTED);
     }
 
-    checkCublasStatus(cublasLtMatmul(ltHandle,
-                                     operationDesc,
-                                     alpha,
-                                     A,
-                                     Adesc,
-                                     B,
-                                     Bdesc,
-                                     &beta,
-                                     C,
-                                     Cdesc,
-                                     D,
-                                     Ddesc,
-                                     &heuristicResult.algo,
-                                     workspace,
-                                     workspaceSize,
-                                     0));
+    if (enable_profile) {
+        for (int i = 0; i < warmup_iterations; ++i) {
+            checkCublasStatus(cublasLtMatmul(ltHandle,
+                                            operationDesc,
+                                            alpha,
+                                            A,
+                                            Adesc,
+                                            B,
+                                            Bdesc,
+                                            &beta,
+                                            C,
+                                            Cdesc,
+                                            D,
+                                            Ddesc,
+                                            &heuristicResult.algo,
+                                            workspace,
+                                            workspaceSize,
+                                            0));
+        }
+        cout << warmup_iterations << " iters warmup finished. \n";
+
+        cudaEvent_t start, stop;
+        cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+        cudaEventRecord(start, 0);
+        for (int i = 0; i < profile_iterations; ++i) {
+            checkCublasStatus(cublasLtMatmul(ltHandle,
+                                            operationDesc,
+                                            alpha,
+                                            A,
+                                            Adesc,
+                                            B,
+                                            Bdesc,
+                                            &beta,
+                                            C,
+                                            Cdesc,
+                                            D,
+                                            Ddesc,
+                                            &heuristicResult.algo,
+                                            workspace,
+                                            workspaceSize,
+                                            0));
+        }
+        cudaEventRecord(stop,0);
+        cudaEventSynchronize(stop);
+        float elapsed;
+        cudaEventElapsedTime(&elapsed, start, stop);
+        float avg_time = elapsed / profile_iterations;
+        cout << "Profiling gemm with " << profile_iterations << " iterations in " << avg_time << " ms: bs=1"
+            << " m=" << m << " n=" << n << " k=" << k << " random_range=[" << random_min << ", " << random_max << "]"
+             << " trans_a=" << (transa==CUBLAS_OP_N?0:1) << " trans_b=" << (transb==CUBLAS_OP_N?0:1)
+             << " tflops=" << 2*1e-9*m*n*k/avg_time << endl;
+        cudaEventDestroy(start);
+        cudaEventDestroy(stop);
+    } else {
+        checkCublasStatus(cublasLtMatmul(ltHandle,
+                                        operationDesc,
+                                        alpha,
+                                        A,
+                                        Adesc,
+                                        B,
+                                        Bdesc,
+                                        &beta,
+                                        C,
+                                        Cdesc,
+                                        D,
+                                        Ddesc,
+                                        &heuristicResult.algo,
+                                        workspace,
+                                        workspaceSize,
+                                        0));
+        cout << "Running gemm with: bs=1 m=" << m << " n=" << n << " k=" << k << " random_range=[" << random_min << ", " << random_max << "]"
+             << " trans_a=" << (transa==CUBLAS_OP_N?0:1) << " trans_b=" << (transb==CUBLAS_OP_N?0:1) << endl;
+    }
 
     // descriptors are no longer needed as all GPU work was already enqueued
     if (preference) checkCublasStatus(cublasLtMatmulPreferenceDestroy(preference));

@@ -32,12 +32,66 @@
 #include <stdexcept>
 #include <vector>
 #include <functional>
+#include <iostream>
+#include <cstdlib>
 
 #include <cublasLt.h>
 #include <cuda_fp8.h>
 #include <cuda_fp4.h>
 #include <cuda_runtime_api.h>
 
+extern int m;
+extern int n;
+extern int k;
+extern float random_max;
+extern float random_min;
+extern cublasOperation_t transA;
+extern cublasOperation_t transB;
+extern bool enable_profile;
+extern int warmup_iterations;
+extern int profile_iterations;
+
+inline void initializeGlobalVariables() {
+    const char* problemShapeEnv = std::getenv("PROBLEM_SHAPE");
+    if (problemShapeEnv) {
+        sscanf(problemShapeEnv, "%dx%dx%d", &m, &n, &k);
+    }
+
+    const char* randomMaxEnv = std::getenv("RANDOM_MAX");
+    const char* randomMinEnv = std::getenv("RANDOM_MIN");
+    
+    if (randomMaxEnv) {
+        random_max = std::atof(randomMaxEnv);
+        random_min = randomMinEnv ? std::atof(randomMinEnv) : -random_max;
+    }
+
+    const char* transAEnv = std::getenv("TRANS_A");
+    const char* transBEnv = std::getenv("TRANS_B");
+    
+    if (transAEnv) {
+        transA = (std::string(transAEnv) == "0") ? CUBLAS_OP_N : CUBLAS_OP_T;
+    }
+
+    if (transBEnv) {
+        transB = (std::string(transBEnv) == "0") ? CUBLAS_OP_N : CUBLAS_OP_T;
+    }
+    
+    const char* enableProfileEnv = std::getenv("ENABLE_PROFILE");
+    if (enableProfileEnv) {
+        enable_profile = (std::string(enableProfileEnv) == "1");
+    }
+
+    if (enable_profile) {
+        const char* profileIterEnv = std::getenv("PROFILE_ITER");
+        if (profileIterEnv) {
+            sscanf(profileIterEnv, "%d,%d", &warmup_iterations, &profile_iterations);
+        }
+    }
+}
+
+inline float random_float() {
+    return (float)rand() / RAND_MAX * (random_max - random_min) + random_min;
+}
 
 static size_t roundoff(size_t  x, size_t granul) {
     return granul * ((x + (granul - 1)) / granul);
@@ -262,10 +316,11 @@ struct TestBench {
     }
 
     void fillData() {
-        for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = InTypeAB(i);
-        for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = InTypeAB(i);
-        for (size_t i = 0; i < Chost.size(); i++) Chost[i] = InTypeC(i);
-        for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = OutType(i + 1);
+        std::cout << "TestBench::fillData()" << std::endl;
+        for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = InTypeAB(random_float());
+        for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = InTypeAB(random_float());
+        for (size_t i = 0; i < Chost.size(); i++) Chost[i] = InTypeC(random_float());
+        for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = OutType(random_float());
     }
 
     void fillScales(ScaleType Ascale, ScaleType Bscale, ScaleType Cscale, DScaleType Dscale) {
@@ -373,10 +428,11 @@ struct TestBench {
 
 template <>
 inline void TestBench<__half, __half, float>::fillData() {
-    for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = __float2half_rn(float(i));
-    for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __float2half_rn(float(i));
-    for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __float2half_rn(float(i));
-    for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __float2half_rn(float(i + 1));
+    std::cout << "TestBench<__half, __half, float>::fillData()" << std::endl;
+    for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = __float2half_rn(random_float());
+    for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __float2half_rn(random_float());
+    for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __float2half_rn(random_float());
+    for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __float2half_rn(random_float());
 }
 
 template <>
@@ -389,8 +445,11 @@ inline void TestBench<__half, __half, cuComplex>::fillData() {
 
 template <>
 inline void TestBench<__nv_fp4_e2m1, __nv_fp4_e2m1, float, __nv_fp8_e4m3, float, __nv_bfloat16>::fillData() {
-    for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = __nv_fp4x2_e2m1{float2{float(i % 5), float(i % 5) + 1}};
-    for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __nv_fp4x2_e2m1{float2{float(i % 5), float(i % 5) + 1}};
+    std::cout << "TestBench<__nv_fp4_e2m1, __nv_fp4_e2m1, float, __nv_fp8_e4m3, float, __nv_bfloat16>::fillData()" << std::endl;
+
+    for (size_t i = 0; i < Ahost.size(); i++) Ahost[i] = __nv_fp4x2_e2m1{float2{random_float(), random_float()}};
+    for (size_t i = 0; i < Bhost.size(); i++) Bhost[i] = __nv_fp4x2_e2m1{float2{random_float(), random_float()}};
+    
     for (size_t i = 0; i < Chost.size(); i++) Chost[i] = __nv_bfloat16(i % 5);
     for (size_t i = 0; i < biasHost.size(); i++) biasHost[i] = __nv_fp4x2_e2m1{float2{float(i % 5), float(i % 5) + 1}};
 }

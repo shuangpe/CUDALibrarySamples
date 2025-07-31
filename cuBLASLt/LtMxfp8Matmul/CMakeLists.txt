@@ -18,6 +18,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(${PROJECT_NAME}
     main.cpp
     ${PROJECT_NAME}.cu
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Common/helpers.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

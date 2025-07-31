@@ -1,5 +1,16 @@
 #include "helpers.h"
 
+int m = 1024;
+int n = 1024;
+int k = 1024;
+float random_max = 5.0f;
+float random_min = -5.0f;
+cublasOperation_t transA = CUBLAS_OP_N;
+cublasOperation_t transB = CUBLAS_OP_N;
+bool enable_profile = true;
+int warmup_iterations = 500;
+int profile_iterations = 2000;
+
 /* CAUTION : must match cublasLtMatmulTile_t */
 const char * const matmulTileName[] = {
     "UNDEF",

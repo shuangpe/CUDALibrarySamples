@@ -27,6 +27,8 @@
  */
 
 #include <cublasLt.h>
+#include <iostream>
+using namespace std;
 
 #include "sample_cublasLt_LtHSHgemmStridedBatchSimple.h"
 #include "helpers.h"
@@ -83,23 +85,83 @@ void LtHSHgemmStridedBatchSimple(cublasLtHandle_t ltHandle,
     // matmul to get the basic heuristic result internally. Downsides of this approach are that there is no way to
     // configure search preferences (e.g. disallow tensor operations or some reduction schemes) and no way to store the
     // algo for later use
-    checkCublasStatus(cublasLtMatmul(ltHandle,
-                                     operationDesc,
-                                     alpha,
-                                     A,
-                                     Adesc,
-                                     B,
-                                     Bdesc,
-                                     beta,
-                                     C,
-                                     Cdesc,
-                                      C,
-                                     Cdesc,
-                                     NULL,
-                                     workspace,
-                                     workspaceSize,
-                                     0));
 
+    if (enable_profile) {
+        for (int i = 0; i < warmup_iterations; ++i) {
+            checkCublasStatus(cublasLtMatmul(ltHandle,
+                                            operationDesc,
+                                            alpha,
+                                            A,
+                                            Adesc,
+                                            B,
+                                            Bdesc,
+                                            beta,
+                                            C,
+                                            Cdesc,
+                                            C,
+                                            Cdesc,
+                                            NULL,
+                                            workspace,
+                                            workspaceSize,
+                                            0));
+        }
+        cout << warmup_iterations << " iters warmup finished. \n";
+        
+        cudaEvent_t start, stop;
+        cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+        cudaEventRecord(start, 0);
+        for (int i = 0; i < profile_iterations; ++i) {
+            checkCublasStatus(cublasLtMatmul(ltHandle,
+                                            operationDesc,
+                                            alpha,
+                                            A,
+                                            Adesc,
+                                            B,
+                                            Bdesc,
+                                            beta,
+                                            C,
+                                            Cdesc,
+                                            C,
+                                            Cdesc,
+                                            NULL,
+                                            workspace,
+                                            workspaceSize,
+                                            0));
+        }
+        cudaEventRecord(stop,0);
+        cudaEventSynchronize(stop);
+        float elapsed;
+        cudaEventElapsedTime(&elapsed, start, stop);
+        float avg_time = elapsed / profile_iterations;
+        cout << "Profiling gemm with " << profile_iterations << " iterations in " << avg_time << " ms: bs=" << batchCount
+            << " m=" << m << " n=" << n << " k=" << k << " random_range=[" << random_min << ", " << random_max << "]"
+             << " trans_a=" << (transa==CUBLAS_OP_N?0:1) << " trans_b=" << (transb==CUBLAS_OP_N?0:1)
+             << " tflops=" << 2*1e-9*m*n*k/avg_time*batchCount << endl;
+        cudaEventDestroy(start);
+        cudaEventDestroy(stop);
+    } else {
+        checkCublasStatus(cublasLtMatmul(ltHandle,
+                                        operationDesc,
+                                        alpha,
+                                        A,
+                                        Adesc,
+                                        B,
+                                        Bdesc,
+                                        beta,
+                                        C,
+                                        Cdesc,
+                                        C,
+                                        Cdesc,
+                                        NULL,
+                                        workspace,
+                                        workspaceSize,
+                                        0));
+        cout << "Running gemm with: bs=" << batchCount
+             << " m=" << m << " n=" << n << " k=" << k << " random_range=[" << random_min << ", " << random_max << "]"
+             << " trans_a=" << (transa==CUBLAS_OP_N?0:1) << " trans_b=" << (transb==CUBLAS_OP_N?0:1) << endl;
+    }
+    
     // descriptors are no longer needed as all GPU work was already enqueued
     if (Cdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Cdesc));
     if (Bdesc) checkCublasStatus(cublasLtMatrixLayoutDestroy(Bdesc));
